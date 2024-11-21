@@ -133,16 +133,18 @@ def guardar_partida(nombre_jugador, gano):
     resultado = cursor.fetchone()
 
     if resultado:
+        # El jugador ya existe, actualizamos sus estadísticas
         jugador_id, partidas_jugadas, partidas_ganadas = resultado
-        partidas_jugadas += 1
+        partidas_jugadas += 1  # Aumenta el contador de partidas jugadas
         if gano:
-            partidas_ganadas += 1
+            partidas_ganadas += 1  # Si ganas aumentan las partidas ganadas
         cursor.execute("""
             UPDATE partidas
             SET partidas_jugadas = ?, partidas_ganadas = ?
             WHERE id = ?
         """, (partidas_jugadas, partidas_ganadas, jugador_id))
     else:
+        # El jugador no existe, lo insertamos en la base de datos
         cursor.execute("""
             INSERT INTO partidas (nombre_jugador, partidas_jugadas, partidas_ganadas)
             VALUES (?, ?, ?)
@@ -150,6 +152,7 @@ def guardar_partida(nombre_jugador, gano):
 
     conn.commit()
     conn.close()
+
 
 
 class AhorcadoApp:
