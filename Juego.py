@@ -246,7 +246,7 @@ class AhorcadoApp:
         self.root.configure(bg=fondo_principal)
 
         # datos jugador y tema
-        tk.Label(self.root, text=f"Jugador: {self.nombre_jugador}", font=fuente_titulo, bg=fondo_principal,
+        tk.Label(self.root, text=f"Nombre: {self.nombre_jugador}", font=fuente_titulo, bg=fondo_principal,
                  fg=color_texto).pack(pady=5)
         tk.Label(self.root, text=f"Tema: {self.tema.capitalize()}", font=fuente_titulo, bg=fondo_principal,
                  fg=color_resaltado).pack(pady=5)
