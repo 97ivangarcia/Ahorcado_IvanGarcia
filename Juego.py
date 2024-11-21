@@ -1,33 +1,155 @@
 import random
-import json
+import sqlite3
 import tkinter as tk
 from tkinter import messagebox
 
 
-# cargara las palabras desde el json que se llama "palabras.json"
+# Crear base de datos y tablas
+def crear_base_datos():
+    conn = sqlite3.connect("ahorcado.db")
+    cursor = conn.cursor()
+
+    # Crear tabla palabras
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS palabras (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tema TEXT NOT NULL,
+            palabra TEXT NOT NULL
+        )
+    """)
+
+    # Crear tabla partidas
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS partidas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nombre_jugador TEXT NOT NULL,
+            partidas_jugadas INTEGER DEFAULT 0,
+            partidas_ganadas INTEGER DEFAULT 0
+        )
+    """)
+
+    conn.commit()
+    conn.close()
+
+
+# Insertar palabras iniciales
+def insertar_palabras_iniciales():
+    palabras = {
+        "frutas": [
+            "manzana",
+            "platano",
+            "naranja",
+            "uva",
+            "fresa",
+            "melocoton",
+            "pera",
+            "mango",
+            "kiwi",
+            "sandia",
+            "melon",
+            "cereza",
+            "ciruela",
+            "higo",
+            "granada",
+            "papaya",
+            "guayaba",
+            "piña",
+            "limon",
+            "lima",
+            "frambuesa",
+            "arándano",
+            "durazno",
+            "nectarina",
+            "mandarina",
+            "coco",
+            "pomelo",
+            "tamarindo",
+            "chirimoya",
+            "caqui",
+            "lichi"
+        ],
+        "informatica": [
+            "python", "java", "código", "teclado", "monitor", "inteligencia", "servidor", "cliente", "software",
+            "internet"
+        ],
+        "personas": [
+            "maaaaaaaaaartin",
+            "ivan",
+            "andrea",
+            "rafa",
+            "antonio",
+            "jusep",
+            "niko",
+            "rodri",
+            "alberto",
+            "victor",
+            "lucas",
+            "miguel",
+            "patricia",
+            "josema",
+            "raul",
+            "pablo",
+            "dani",
+        ]
+    }
+
+    conn = sqlite3.connect("ahorcado.db")
+    cursor = conn.cursor()
+  #aqui se insertan las palabras en la base de datos
+    for tema, lista_palabras in palabras.items():
+        for palabra in lista_palabras:
+            cursor.execute("""
+                INSERT OR IGNORE INTO palabras (tema, palabra)
+                VALUES (?, ?)
+            """, (tema, palabra))
+
+    conn.commit()
+    conn.close()
+
+
+# Cargar palabras desde SQLite
 def cargar_palabras(tema):
-    with open('palabras.json', 'r') as f:
-        palabras = json.load(f)
-    return palabras[tema]
+    conn = sqlite3.connect("ahorcado.db")
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT palabra FROM palabras WHERE tema = ?", (tema,))
+    palabras = [row[0] for row in cursor.fetchall()]
+
+    conn.close()
+    return palabras
 
 
-# Guardara las partidas jugadas y ganadas en el json partidas.json
+# Guardar partida en SQLite
 def guardar_partida(nombre_jugador, gano):
-    try:
-        with open('partidas.json', 'r') as f:
-            partidas = json.load(f)
-    except FileNotFoundError:
-        partidas = {}
-    # por cada partida jugada y ganada aumentara +1
-    if nombre_jugador in partidas:
-        partidas[nombre_jugador]['partidas_jugadas'] += 1
-        if gano:
-            partidas[nombre_jugador]['partidas_ganadas'] += 1
-    else:
-        partidas[nombre_jugador] = {'partidas_jugadas': 1, 'partidas_ganadas': 1 if gano else 0}
+    conn = sqlite3.connect("ahorcado.db")
+    cursor = conn.cursor()
 
-    with open('partidas.json', 'w') as f:
-        json.dump(partidas, f, indent=4)
+    # Consultar si el jugador ya existe
+    cursor.execute("""
+        SELECT id, partidas_jugadas, partidas_ganadas
+        FROM partidas
+        WHERE nombre_jugador = ?
+    """, (nombre_jugador,))
+    resultado = cursor.fetchone()
+
+    if resultado:
+        jugador_id, partidas_jugadas, partidas_ganadas = resultado
+        partidas_jugadas += 1
+        if gano:
+            partidas_ganadas += 1
+        cursor.execute("""
+            UPDATE partidas
+            SET partidas_jugadas = ?, partidas_ganadas = ?
+            WHERE id = ?
+        """, (partidas_jugadas, partidas_ganadas, jugador_id))
+    else:
+        cursor.execute("""
+            INSERT INTO partidas (nombre_jugador, partidas_jugadas, partidas_ganadas)
+            VALUES (?, ?, ?)
+        """, (nombre_jugador, 1, 1 if gano else 0))
+
+    conn.commit()
+    conn.close()
 
 
 class AhorcadoApp:
@@ -55,7 +177,6 @@ class AhorcadoApp:
         color_resaltado = "#ff79c6"
         fuente_titulo = ("Helvetica", 20, "bold")
         fuente_texto = ("Helvetica", 12)
-        borde_redondeado = 10
 
         self.root.configure(bg=fondo_principal)
 
@@ -96,13 +217,12 @@ class AhorcadoApp:
             messagebox.showerror("Error", "Por favor, ingrese su nombre.")
             return
 
-        try:
-            palabras = cargar_palabras(self.tema)  # comprueba si el archivo existe
-        except FileNotFoundError:
-            messagebox.showerror("Error", "No se encontró el archivo de palabras.")
+        palabras = cargar_palabras(self.tema)
+        if not palabras:
+            messagebox.showerror("Error", "No hay palabras disponibles para este tema.")
             return
 
-        self.palabra_secreta = random.choice(palabras).lower()  # genera la palabra aleatoria del tema seleccionado
+        self.palabra_secreta = random.choice(palabras).lower()
         self.letras_adivinadas = []
         self.letras_incorrectas = []
         self.errores = 0
@@ -113,7 +233,7 @@ class AhorcadoApp:
         for widget in self.root.winfo_children():
             widget.destroy()
 
-        # colores y estilos
+        # configuracion colores y estilo
         fondo_principal = "#1e1e2f"
         fondo_secundario = "#2d2d44"
         color_texto = "#ffffff"
@@ -142,33 +262,25 @@ class AhorcadoApp:
         self.dibujo_label.pack()
 
         # letras incorrectas
-        tk.Label(self.root, text="Letras incorrectas:", font=fuente_texto, bg=fondo_principal, fg=color_texto).pack(
-            pady=5)
+        tk.Label(self.root, text="Letras incorrectas:", font=fuente_texto, bg=fondo_principal, fg=color_texto).pack(pady=5)
         self.letras_incorrectas_label = tk.Label(self.root, text=", ".join(self.letras_incorrectas), font=fuente_texto,
-                                                 bg=fondo_principal, fg=color_resaltado)
-        self.letras_incorrectas_label.pack()
+                                         bg=fondo_principal, fg='red')  # Manteniendo el color rojo
+        self.letras_incorrectas_label.pack(pady=5)
 
-        # campo de texto
-        entrada_frame = tk.Frame(self.root, bg=fondo_secundario, bd=0, highlightthickness=0)
-        entrada_frame.pack(pady=20)
 
-        tk.Label(entrada_frame, text="Ingresa una letra:", font=fuente_texto, bg=fondo_secundario,
-                 fg=color_texto).pack(side=tk.LEFT, padx=5)
-
-        self.letra_entry = tk.Entry(entrada_frame, font=fuente_texto, width=5, relief="flat", justify="center",
-                                    bg=fondo_principal, fg=color_texto, insertbackground=color_resaltado)
-        self.letra_entry.pack(side=tk.LEFT, padx=5)
-        self.letra_entry.bind("<Return>", lambda event: self.intentar_letra())
-
-        tk.Button(entrada_frame, text="Intentar", command=self.intentar_letra, font=fuente_titulo,
-                  bg=color_resaltado, fg=fondo_principal, bd=0, padx=10, pady=5, activebackground="#ff92d0",
-                  activeforeground=fondo_principal).pack(side=tk.LEFT, padx=5)
+        # entrada de letra
+        tk.Label(self.root, text="Introduce una letra:", font=fuente_texto, bg=fondo_principal, fg=color_texto).pack(
+            pady=5)
+        self.letra_entry = tk.Entry(self.root, font=fuente_texto, bg=fondo_principal, fg=color_texto)
+        self.letra_entry.pack(pady=5)
+        tk.Button(self.root, text="Comprobar", command=self.comprobar_letra, font=fuente_texto,
+                  bg=color_resaltado, fg=fondo_principal, padx=15, pady=5, bd=0).pack(pady=5)
 
     def get_palabra_mostrada(self):
         return " ".join([letra if letra in self.letras_adivinadas else "_" for letra in self.palabra_secreta])
 
     def dibujar_ahorcado(self):
-        estados = [
+        ahorcado = [
             "  +---+\n      |\n      |\n      |\n     ===",
             "  +---+\n  O   |\n      |\n      |\n     ===",
             "  +---+\n  O   |\n  |   |\n      |\n     ===",
@@ -177,47 +289,39 @@ class AhorcadoApp:
             "  +---+\n  O   |\n /|\\  |\n /    |\n     ===",
             "  +---+\n  O   |\n /|\\  |\n / \\  |\n     ===",
         ]
-        return estados[self.errores]
+        return ahorcado[self.errores]
 
-    def intentar_letra(self):
-        letra = self.letra_entry.get().lower().strip()  # esta es la letra ingresada
-        self.letra_entry.delete(0, tk.END)  # borra la letra ingresada
-
+    def comprobar_letra(self):
+        letra = self.letra_entry.get().strip().lower()
         if len(letra) != 1 or not letra.isalpha():
-            messagebox.showerror("Estas cuajao", "Por favor, ingresa una letra válida.")
+            messagebox.showerror("Error", "Por favor, ingresa solo una letra.")
             return
 
         if letra in self.letras_adivinadas or letra in self.letras_incorrectas:
-            messagebox.showwarning("Espabila", "Ya has ingresado esa letra.")
+            messagebox.showinfo("Atención", "Ya has adivinado esta letra.")
             return
 
         if letra in self.palabra_secreta:
             self.letras_adivinadas.append(letra)
-            if set(self.letras_adivinadas) >= set(self.palabra_secreta):
-                messagebox.showinfo("¡Oleeee los caracoleee!", f"¡Ganaste! La palabra era: {self.palabra_secreta}")
+            if all(letra in self.letras_adivinadas for letra in self.palabra_secreta):
+                messagebox.showinfo("¡OLEEEE OLEEEEE LOS CARACOLEEEEE!", f"¡Felicidades shurra, ganaste! La palabra era {self.palabra_secreta}.")
                 guardar_partida(self.nombre_jugador, True)
                 self.estilo_inicio()
-                return
         else:
             self.letras_incorrectas.append(letra)
             self.errores += 1
-            if self.errores >= self.intentos_restantes:
-                messagebox.showinfo("Fin del Juego", f"Has perdido. La palabra era: {self.palabra_secreta}")
+            if self.errores == 6:
+                messagebox.showinfo("Perdiste", f"Perdiste. La palabra era {self.palabra_secreta}.")
                 guardar_partida(self.nombre_jugador, False)
                 self.estilo_inicio()
-                return
 
-        self.actualizar_interfaz()
-
-    def actualizar_interfaz(self):
-        self.palabra_label.config(
-            text=self.get_palabra_mostrada())  # esto hace que se muestre la palabra con las letras adivinadas
-        self.dibujo_label.config(text=self.dibujar_ahorcado())  # esto hace que se muestre el dibujo del ahorcado
-        self.letras_incorrectas_label.config(
-            text=", ".join(self.letras_incorrectas))  # esto hace que se muestre las letras incorrectas
+        self.estilo_juego()
 
 
 if __name__ == "__main__":
+    crear_base_datos()
+    insertar_palabras_iniciales()
+
     root = tk.Tk()
     app = AhorcadoApp(root)
     root.mainloop()
