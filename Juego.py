@@ -95,7 +95,7 @@ def insertar_palabras_iniciales():
 
     conn = sqlite3.connect("ahorcado.db")
     cursor = conn.cursor()
-  #aqui se insertan las palabras en la base de datos
+    # insertar en bd
     for tema, lista_palabras in palabras.items():
         for palabra in lista_palabras:
             cursor.execute("""
@@ -154,18 +154,17 @@ def guardar_partida(nombre_jugador, gano):
     conn.close()
 
 
-
 class AhorcadoApp:
     def __init__(self, root):
-        self.root = root
+        self.root = root  #esto es la ventana principal
         self.root.title("Juego del ahorcado")
         self.nombre_jugador = ""
         self.tema = ""
         self.palabra_secreta = ""
-        self.letras_adivinadas = []
-        self.letras_incorrectas = []
+        self.letras_adivinadas = [] #array con las letras adivinadas
+        self.letras_incorrectas = [] #array con las letras incorrectas
         self.errores = 0
-        self.intentos_restantes = 6
+        self.intentos_restantes = 6 #maximo de intentos
 
         self.estilo_inicio()
 
@@ -173,7 +172,7 @@ class AhorcadoApp:
         for widget in self.root.winfo_children():
             widget.destroy()
 
-        # configuracion colores y estilo
+
         fondo_principal = "#1e1e2f"
         fondo_secundario = "#2d2d44"
         color_texto = "#ffffff"
@@ -265,11 +264,11 @@ class AhorcadoApp:
         self.dibujo_label.pack()
 
         # letras incorrectas
-        tk.Label(self.root, text="Letras incorrectas:", font=fuente_texto, bg=fondo_principal, fg=color_texto).pack(pady=5)
+        tk.Label(self.root, text="Letras incorrectas:", font=fuente_texto, bg=fondo_principal, fg=color_texto).pack(
+            pady=5)
         self.letras_incorrectas_label = tk.Label(self.root, text=", ".join(self.letras_incorrectas), font=fuente_texto,
-                                         bg=fondo_principal, fg='red')  # Manteniendo el color rojo
+                                                 bg=fondo_principal, fg='red')  # Manteniendo el color rojo
         self.letras_incorrectas_label.pack(pady=5)
-
 
         # entrada de letra
         tk.Label(self.root, text="Introduce una letra:", font=fuente_texto, bg=fondo_principal, fg=color_texto).pack(
@@ -307,7 +306,8 @@ class AhorcadoApp:
         if letra in self.palabra_secreta:
             self.letras_adivinadas.append(letra)
             if all(letra in self.letras_adivinadas for letra in self.palabra_secreta):
-                messagebox.showinfo("¡OLEEEE OLEEEEE LOS CARACOLEEEEE!", f"¡Felicidades shurra, ganaste! La palabra era {self.palabra_secreta}.")
+                messagebox.showinfo("¡OLEEEE OLEEEEE LOS CARACOLEEEEE!",
+                                    f"¡Felicidades shurra, ganaste! La palabra era {self.palabra_secreta}.")
                 guardar_partida(self.nombre_jugador, True)
                 self.estilo_inicio()
         else:
